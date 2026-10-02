@@ -35,18 +35,39 @@ STEPS = [
     move_money
 ]
 
-def run_steps(steps, ctx):
-    for step in steps:
-        step(ctx)
-
-def transfer(accounts, source, dest, amount):
-    ctx = {
+def build_ctx(accounts, source, dest, amount):
+    return {
         'accounts': accounts,
         'source': source,
         'dest': dest,
-        'amount': amount
+        'amount': amount,
+        'audit' : []
     }
+
+def run_steps(steps, ctx):
+    for step in steps:
+        try:
+            step(ctx)
+        except PermanentError as exc:
+            ctx['audit'].append(
+                {'step' : step.__name__, 'outcome' : 'REJECTED', 'message' : str(exc)}
+            )
+            raise
+        ctx['audit'].append(
+            {'step' : step.__name__, 'outcome' : 'SUCCESS', 'message' : ''}
+        )
+
+
+def transfer(accounts, source, dest, amount):
+    ctx = build_ctx(accounts, source, dest, amount)
     run_steps(STEPS, ctx)
 
 
+def submit_transfer(accounts, source, dest, amount):
+    ctx = build_ctx(accounts, source, dest, amount)
+    try:
+        run_steps(STEPS, ctx)
+    except PermanentError as exc:
+        return {'status' : 'REJECTED', 'reason' : str(exc), 'audit' : ctx['audit']}
+    return {'status': 'COMPLETED', 'reason': '', 'audit': ctx['audit']}
 

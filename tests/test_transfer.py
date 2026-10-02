@@ -1,33 +1,24 @@
 import unittest
-from workflow_lab.transfer import transfer
+from workflow_lab.transfer import transfer, submit_transfer, STEPS
 from workflow_lab.errors import PermanentError
 
 class TestTransfer(unittest.TestCase):
-    def test_transfer_moves_money_and_keeps_total(self):
+    def test_valid_request_completes_and_moves_money(self):
         accounts = {"A": 100000, "B": 5000}
-        total_before = accounts["A"] + accounts["B"]
 
-        # 1. call your transfer function: move 1000 from A to B
-        transfer(accounts, "A", "B", 1000)
+        result = submit_transfer(accounts, "A", "B", 1000)
 
-        # 2. check A went down by 1000
-        # print(f'Balance in Account A = {accounts["A"]}')
+        self.assertEqual(result["status"], "COMPLETED")
         self.assertEqual(accounts["A"], 99000)
-
-        # 3. check B went up by 1000
-        # print(f'Balance in Account B = {accounts["B"]}')
         self.assertEqual(accounts["B"], 6000)
 
-        # 4. check the total of both is still the same as before
-        self.assertEqual(accounts["A"] + accounts["B"], total_before)
-
-    def test_negative_amount_is_refused_and_nothing_moves(self):
+    def test_invalid_request_is_rejected_with_reason_and_nothing_moves(self):
         accounts = {"A": 100000, "B": 5000}
 
-        with self.assertRaises(PermanentError):
-            transfer(accounts, "A", "B", -1000)
+        result = submit_transfer(accounts, "A", "B", -1000)
 
-        print(f'A = {accounts["A"]}, B = {accounts["B"]}')
+        self.assertEqual(result["status"], "REJECTED")
+        self.assertEqual(result["reason"], "Amount must be greater than zero")
         self.assertEqual(accounts["A"], 100000)
         self.assertEqual(accounts["B"], 5000)
 
@@ -69,15 +60,27 @@ class TestTransfer(unittest.TestCase):
         self.assertEqual(accounts["A"], 100000)
         self.assertEqual(accounts["B"], 5000)
 
-    def test_insufficient_funds_is_refused_and_nothing_moves(self):
+    def test_audit_lists_every_step_in_order_when_completed(self):
         accounts = {"A": 100000, "B": 5000}
 
-        with self.assertRaises(PermanentError):
-            transfer(accounts, "A", "B", 500000)
+        result = submit_transfer(accounts, "A", "B", 1000)
 
-        print(f'A = {accounts["A"]}, B = {accounts["B"]}')
-        self.assertEqual(accounts["A"], 100000)
-        self.assertEqual(accounts["B"], 5000)
+        names = [entry["step"] for entry in result["audit"]]
+        outcomes = {entry["outcome"] for entry in result["audit"]}
+        self.assertEqual(names, [step.__name__ for step in STEPS])
+        self.assertEqual(outcomes, {"SUCCESS"})
+
+    def test_audit_stops_at_the_step_that_refused(self):
+        accounts = {"A": 100000, "B": 5000}
+
+        result = submit_transfer(accounts, "A", "B", 500000)
+
+        all_names = [step.__name__ for step in STEPS]
+        expected = all_names[: all_names.index("check_insufficient_funds") + 1]
+        names = [entry["step"] for entry in result["audit"]]
+        self.assertEqual(names, expected)
+        self.assertEqual(result["audit"][-1]["outcome"], "REJECTED")
+        self.assertNotIn("move_money", names)
 
 if __name__ == '__main__':
     unittest.main()
