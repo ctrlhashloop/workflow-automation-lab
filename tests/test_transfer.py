@@ -27,9 +27,57 @@ class TestTransfer(unittest.TestCase):
         with self.assertRaises(PermanentError):
             transfer(accounts, "A", "B", -1000)
 
-            self.assertEqual(accounts["A"], 100000)
-            self.assertEqual(accounts["B"], 5000)
+        print(f'A = {accounts["A"]}, B = {accounts["B"]}')
+        self.assertEqual(accounts["A"], 100000)
+        self.assertEqual(accounts["B"], 5000)
 
+    def test_zero_amount_is_refused_and_nothing_moves(self):
+        accounts = {"A": 100000, "B": 5000}
+
+        with self.assertRaises(PermanentError):
+            transfer(accounts, "A", "B", 0)
+        print(f'A = {accounts["A"]}, B = {accounts["B"]}')
+        self.assertEqual(accounts["A"], 100000)
+        self.assertEqual(accounts["B"], 5000)
+
+    def test_same_source_and_destination_accounts_is_refused_and_nothing_moves(self):
+        accounts = {"A": 100000, "B": 5000}
+
+        with self.assertRaises(PermanentError):
+            transfer(accounts, "A", "A", 1000)
+
+        print(f'A = {accounts["A"]}, B = {accounts["B"]}')
+        self.assertEqual(accounts["A"], 100000)
+        self.assertEqual(accounts["B"], 5000)
+
+    def test_unknown_destination_account_is_refused_and_nothing_moves(self):
+        accounts = {"A": 100000, "B": 5000}
+
+        with self.assertRaises(PermanentError):
+            transfer(accounts, "A", "Z", 1000)
+
+        self.assertEqual(accounts["A"], 100000)
+        self.assertEqual(accounts["B"], 5000)
+
+    def test_unknown_source_account_is_refused_and_nothing_moves(self):
+        accounts = {"A": 100000, "B": 5000}
+
+        with self.assertRaises(PermanentError):
+            transfer(accounts, "C", "B", 1000)
+
+        print(f'A = {accounts["A"]}, B = {accounts["B"]}')
+        self.assertEqual(accounts["A"], 100000)
+        self.assertEqual(accounts["B"], 5000)
+
+    def test_insufficient_funds_is_refused_and_nothing_moves(self):
+        accounts = {"A": 100000, "B": 5000}
+
+        with self.assertRaises(PermanentError):
+            transfer(accounts, "A", "B", 500000)
+
+        print(f'A = {accounts["A"]}, B = {accounts["B"]}')
+        self.assertEqual(accounts["A"], 100000)
+        self.assertEqual(accounts["B"], 5000)
 
 if __name__ == '__main__':
     unittest.main()
